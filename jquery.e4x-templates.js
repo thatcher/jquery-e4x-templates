@@ -14,7 +14,10 @@
         log.debug("loading e4x : %s", url);
 		if(!cache[url]){
 	        $.ajax({
-	            url: "app/views/templates/"+url,
+	            url: $.env('context_dir')+
+                     $.env('app_dir')+
+                     $.env('templates')+
+                     url,
 	            type: "GET",
 	            dataType:"text",
 	            async:false,
@@ -37,10 +40,10 @@
 					try{load("app/views/templates/"+url)}catch(e){};           
 	            }, 
 				error:function(xhr, status, e){
-					log.error("Error Loading E4X Template : %s", status).
+					log.error("Error Loading E4X Template : %s", url).
 						exception(e);
 					
-	                cache[url] = e4x_eval("<e4x><h3>Error Loading: "+url+"</h3></e4x>", blockMap, model, true).toXMLString();  
+	                cache[url] = e4x_eval("\n<e4x><h3>Error Loading: "+url+'\n\n'+e.toString()+"</h3></e4x>", null, model, true).toXMLString();  
 				}
 	        });  
 		}
