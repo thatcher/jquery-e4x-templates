@@ -30,15 +30,27 @@
     };
     
     $.e4x = function(url, model, is_root){
-        var e4x;
+        var e4x, nullfunction = function(){return this;};
+        log = $.logger?$.logger('jQuery.E4X'):{
+            debug:nullfunction,
+            info:nullfunction,
+            warn:nullfunction,
+            error:nullfunction,
+            exception:nullfunction
+        };
         url = (  $.env ? $.env('templates') : '' ) + url;
 		if(!cache[url]){
+            log.info('loading template %s', url);
 	        $.ajax({
 	            url: url,
 	            type: "GET",
 	            dataType:"text",
 	            async:false,
 	            success: function(text){
+                    text = text+'';
+                    log.info('loaded %s', url).
+                        debug('template text looks like \n\n%s\n\n', 
+                            (text).substring(0, text.length<50?text.length:50));
 	                var base, block, blockMap = {};
 					if(is_root){
 						//we need to render out the block hierarchy
@@ -51,12 +63,17 @@
 					blockMapCache[url] = blockMap;
 					
 					//causes template to be added to file monitor
-					try{load(url)}catch(e){};           
+                    if($.env&&$.env('monitorTemplates')=='true'){
+                        try{load(url.split('?')[0])}catch(e){};
+                    }                
 	            }, 
 				error:function(xhr, status, e){
-	                cache[url] = e4x_eval("\n<e4x><h3>Error Loading: "+
-                        url+'\n\n'+e.toString()+"</h3></e4x>", 
-                        null, model, true).toXMLString();  
+                    log.error('error loading %s (%s)', url, status).
+                        exception(e);
+	                cache[url] = e4x_eval("<e4x>"+
+                            "<h3>Error Loading: "+url+"</h3>"+
+                        "</e4x>", 
+                        null, model, false).toXMLString();  
 				}
 	        });  
 		}
@@ -72,9 +89,8 @@
     	var extend = function(url){
     		return $.e4x(url, model, deep);
     	}
-        var _$ = model;
         
-        //replace {{ and }} with {"{ and }"} respectively so that
+        //replace {{_: and }}: with {"{ and }"} respectively so that
         //we evalute truely dynamic content on the second pass
         //of the cached template
         if(!deep){
@@ -84,9 +100,11 @@
         }
         
         var evaluated;
-		evaluated = eval("(function(){"+
-            "return new XMLList("+text+");"+
-        "})();"); 
+        with(model){
+            eval("evaluated = (function(){"+
+                "return new XMLList("+text+");"+
+            "})();"); 
+        }
 					
 		//all blocks are treated in document order
 		var blocks = evaluated..block,
