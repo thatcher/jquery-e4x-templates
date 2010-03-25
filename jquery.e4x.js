@@ -48,9 +48,7 @@
 	            async:false,
 	            success: function(text){
                     text = text+'';
-                    log.info('loaded %s', url).
-                        debug('template text looks like \n\n%s\n\n', 
-                            (text).substring(0, text.length<50?text.length:50));
+                    log.debug('loaded %s', url);
 	                var base, block, blockMap = {};
 					if(is_root){
 						//we need to render out the block hierarchy
@@ -88,19 +86,12 @@
 		
     	var extend = function(url){
     		return $.e4x(url, model, deep);
-    	}
+    	};
         
-        //replace {{_: and }}: with {"{ and }"} respectively so that
-        //we evalute truely dynamic content on the second pass
-        //of the cached template
-        if(!deep){
-            text = text.replace(/(\{\{_\:|\}\}\:)/g, function(){
-		        return (arguments[0].indexOf('{')>-1)?'{"{':'}"}';
-		    });
-        }
         
         var evaluated;
         with(model){
+            log.debug('evaluating as e4x \n%s',text);
             eval("evaluated = (function(){"+
                 "return new XMLList("+text+");"+
             "})();"); 
@@ -114,6 +105,7 @@
 			block, id; 
 			
 		if(deep){
+            log.debug('checking blocks');
 			//first loop through and make sure we know
 			//which blocks are part of the final cascade
 			for each(block in blocks){
@@ -138,26 +130,34 @@
 			}
 			//now loop through the final remaining blocks
 			if(evaluated.elements().length() > 0){
-				compiled = evaluated.*[0].copy();
-				blocks = compiled..block;
-				delete evaluated;
-				for each(block in blocks){
-					id = block.@id. toString();
-					//step 2: check block
-					if(!blockMap[id]){
-						//step 2: deleting block 
-						delete block;
-					}
-					//step 2: replacing block
-					compiled..block.(@id == id)[0] = blockMap[id]||'';
-				}
+                compiled = evaluated.*[0].copy();
+                delete evaluated;
+                
+                blocks = compiled..block;
+                while(blocks.length() > 0){
+                    
+                    log.debug('replacing blocks');
+                    for each(block in blocks){
+                        id = block.@id. toString();
+                        log.debug('replacing block id %s', id);
+                        //step 2: check block
+                        if(!blockMap[id]){
+                            //step 2: deleting block 
+                            delete block;
+                        }
+                        //step 2: replacing block
+                        compiled..block.(@id == id)[0] = blockMap[id]||'';
+                    }
+                    
+                    blocks = compiled..block;
+                }
 				
-				//finally replace each <e4x> element with it's children
-				for each(var e4x in compiled..e4x){
-					e4x = e4x.children();
-				}
-				
-				rendered = compiled.copy();
+                //finally replace each <e4x> element with it's children
+                for each(var e4x in compiled..e4x){
+                    e4x = e4x.children();
+                }
+                    
+				rendered = compiled.*.copy();
 				delete compiled;
 			}
 			
